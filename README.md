@@ -11,7 +11,7 @@ Usage
 
 Run some containers:
 
-    % docker run -d --name foo ubutnu bash -c "sleep 60"
+    % docker run -d --name foo ubutnu bash -c "sleep 600"
 
 Start up dockerdns:
 
@@ -20,7 +20,7 @@ Start up dockerdns:
 
 Start more containers:
 
-    % docker run -d --name bar ubuntu bash -c "sleep 60"
+    % docker run -d --name bar ubuntu bash -c "sleep 600"
 
 Check dockerdns logs:
 
@@ -54,4 +54,21 @@ Use dns container as a resolver inside a container:
     64 bytes from 172.17.0.2: icmp_seq=1 ttl=64 time=0.112 ms
     64 bytes from 172.17.0.2: icmp_seq=2 ttl=64 time=0.112 ms
 
+Names not rooted in `example.com` will be resolved recursively using Google's resolver `8.8.8.8` by default:
+
+    root@95840788bf08:/# ping github.com
+    PING github.com (192.30.252.128) 56(84) bytes of data.
+    64 bytes from 192.30.252.128: icmp_seq=1 ttl=61 time=21.3 ms
+
+To disable recursive resolution, use the `--no-recursion` flag:
+
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
+        --domain example.com --no-recursion
+
+Now names not rooted in `example.com` will fail to resolve:
+
+    % docker run -it --dns $(docker inspect -f '{{.NetworkSettings.IPAddress}}' dns) \
+        --dns-search example.com ubuntu bash
+    root@4d15342387b0:/# ping github.com
+    ping: unknown host github.com
 
