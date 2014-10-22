@@ -1,10 +1,12 @@
 docker-dns
 ----------
 
-Automatic container DNS for [Docker][docker].
+Automatic container DNS for [Docker][docker] in a single Python file.
+
+Note that [docker-dns-rest][dns-rest] expands on this, adding a REST API to add and remove domain names dynamically, allowing multiple domain names to be associated with containers, either by name or container ID.  It also includes support for wildcards.
 
 [docker]: http://github.com/docker/docker "Docker"
-
+[dns-rest]: http://github.com/phensley/docker-dns-rest "docker-dns-rest"
 
 Usage
 -----

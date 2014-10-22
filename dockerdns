@@ -95,7 +95,7 @@ class NameTable(object):
 
     def _key(self, name):
         try:
-            return DNSLabel(name).label
+            return DNSLabel(name.lower()).label
         except Exception:
             return None
 
