@@ -66,9 +66,11 @@ class NameTable(object):
 
     'Table mapping names to addresses'
 
-    def __init__(self):
+    def __init__(self, records):
         self._storage = {}
         self._lock = threading.Lock()
+        for rec in records:
+            self.add(rec[0], rec[1])
 
     def add(self, name, addr):
         key = self._key(name)
@@ -201,6 +203,13 @@ def stop(*servers):
             svr.stop() 
     sys.exit(signal.SIGINT) 
 
+def splitrecord(rec):
+    m = re.match('([a-zA-Z0-9_-]*):((?:[12]?[0-9]{1,2}\.){3}(?:[12]?[0-9]{1,2}){1}$)', rec)
+    if not m:
+        log('--record has invalid format, expects: `--record <host>:<ip>`')
+        sys.exit(1)
+    else:
+        return (m.group(1), m.group(2))
 
 def check(args):
     url = urlparse(args.docker)
@@ -230,6 +239,8 @@ def parse_args():
 #        help='Be more verbose')
     parser.add_argument('-q', '--quiet', action='store_const', const=1,
         help='Quiet mode')
+    parser.add_argument('-r', '--record', nargs="*",
+        help="Add a static record `name:host`")
     return parser.parse_args()
 
 
@@ -237,9 +248,11 @@ def main():
     global QUIET
     args = parse_args()
     check(args)
+    args.record = map(splitrecord, args.record)
+
     QUIET = args.quiet
     resolver = () if args.no_recursion else args.resolver
-    table = NameTable()
+    table = NameTable([(k + "." + args.domain, v) for (k, v) in args.record])
     monitor = DockerMonitor(docker.Client(args.docker), table, args.domain)
     dns = DnsServer(args.dns_bind, table, resolver)
     gevent.signal(signal.SIGINT, stop, dns) 
