@@ -239,7 +239,7 @@ def parse_args():
 #        help='Be more verbose')
     parser.add_argument('-q', '--quiet', action='store_const', const=1,
         help='Quiet mode')
-    parser.add_argument('-r', '--record', nargs="*",
+    parser.add_argument('-r', '--record', nargs="*", default=[],
         help="Add a static record `name:host`")
     return parser.parse_args()
 
@@ -248,7 +248,8 @@ def main():
     global QUIET
     args = parse_args()
     check(args)
-    args.record = map(splitrecord, args.record)
+    if args.record:
+        args.record = map(splitrecord, args.record)
 
     QUIET = args.quiet
     resolver = () if args.no_recursion else args.resolver
