@@ -13,7 +13,7 @@ Usage
 
 Run some containers:
 
-    % docker run -d --name foo ubutnu bash -c "sleep 600"
+    % docker run -d --name foo ubuntu bash -c "sleep 600"
 
 Start up dockerdns:
 
