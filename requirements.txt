@@ -1,4 +1,4 @@
-dnslib
-gevent
-docker-py
+dnslib==0.9.4
+gevent==1.0.2
+docker-py==1.1.0
 
