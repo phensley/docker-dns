@@ -174,14 +174,17 @@ class DnsServer(DatagramServer):
     def handle(self, data, peer):
         rec = DNSRecord.parse(data)
         addr = None
+        auth = False
         if rec.q.qtype in (QTYPE.A, QTYPE.AAAA):
             addr = self._table.get(rec.q.qname.idna())
-            if not addr:
+            if addr:
+                auth = True
+            else:
                 addr = self._resolve('.'.join(rec.q.qname.label))
-        self.socket.sendto(self._reply(rec, addr), peer)
+        self.socket.sendto(self._reply(rec, auth, addr), peer)
 
-    def _reply(self, rec, addr=None):
-        reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=1, ra=1), q=rec.q)
+    def _reply(self, rec, auth, addr=None):
+        reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
         if addr:
             reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
         return reply.pack()
