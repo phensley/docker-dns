@@ -126,9 +126,9 @@ class DockerMonitor(object):
 
         # bootstrap by inspecting all running containers
         for container in self._docker.containers():
-            rec = self._inspect(container['Id'])
-            if rec.running:
-                self._table.add(rec.name, rec.addr)
+            for rec in self._inspect(container['Id']):
+                if rec.running:
+                    self._table.add(rec.name, rec.addr)
 
         # read the docker event stream and update the name table
         for raw in events:
@@ -137,14 +137,31 @@ class DockerMonitor(object):
             status = evt['status']
             if status in ('start', 'die'):
                 try:
-                    rec = self._inspect(cid)
-                    if rec:
+                    for rec in self._inspect(cid):
                         if status == 'start':
                             self._table.add(rec.name, rec.addr)
                         else:
                             self._table.remove(rec.name)
                 except Exception as e:
                     print(str(e))
+
+    def _get_names(self, name, labels):
+        names = [ RE_VALIDNAME.sub('', name).rstrip('.') ]
+
+        labels = labels or {}
+        instance = int(labels.get('com.docker.compose.container-number', 1))
+        service = labels.get('com.docker.compose.service')
+        project = labels.get('com.docker.compose.project')
+
+        if all((instance, service, project)):
+            names.append('%d.%s.%s' % (instance, service, project))
+
+            # the first instance of a service is available without number
+            # prefix
+            if instance == 1:
+                names.append('%s.%s' % (service, project))
+
+        return [ '.'.join((name, self._domain)) for name in names ]
 
     def _inspect(self, cid):
         # get full details on this container from docker
@@ -154,15 +171,13 @@ class DockerMonitor(object):
         name = get(rec, 'Name')
         if not name:
             return None
-        name = RE_VALIDNAME.sub('', name).rstrip('.')
-        name += '.' + self._domain
-        return Container(
-            get(rec, 'Id'),
-            name,
-            get(rec, 'State', 'Running'),
-            get(rec, 'NetworkSettings', 'IPAddress')
-        )
 
+        id_ = get(rec, 'Id')
+        labels = get(rec, 'Config', 'Labels')
+        state = get(rec, 'State', 'Running')
+        ip_address = get(rec, 'NetworkSettings', 'IPAddress')
+
+        return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ]
 
 
 class DnsServer(DatagramServer):
