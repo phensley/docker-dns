@@ -4,6 +4,15 @@
 # dockerdns - simple, automatic, self-contained dns server for docker
 
 
+# python 3 compatibility
+from __future__ import print_function
+from future import standard_library
+from functools import reduce
+standard_library.install_aliases()
+from builtins import map
+from builtins import str
+from builtins import object
+
 # monkey patch everything
 from gevent import monkey
 monkey.patch_all()
@@ -18,7 +27,7 @@ import re
 import signal
 import sys
 import time
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 # libs
 from dnslib import A, DNSHeader, DNSLabel, DNSRecord, QTYPE, RR
@@ -48,8 +57,8 @@ def log(msg, *args):
     global QUIET
     if not QUIET:
         now = datetime.now().isoformat()
-        line = '%s [%s] %s\n' % (now, PROCESS, msg % args)
-        sys.stderr.write(line.encode('utf-8'))
+        line = u'%s [%s] %s\n' % (now, PROCESS, msg % args)
+        sys.stderr.write(line)
         sys.stderr.flush()
 
 
@@ -91,7 +100,7 @@ class NameTable(object):
         key = self._key(name)
         if key:
             with self._lock:
-                if self._storage.has_key(key):
+                if key in self._storage:
                     log('table.remove %s', name)
                     del self._storage[key]
 
@@ -134,8 +143,8 @@ class DockerMonitor(object):
                             self._table.add(rec.name, rec.addr)
                         else:
                             self._table.remove(rec.name)
-                except Exception, e:
-                    print str(e)
+                except Exception as e:
+                    print(str(e))
 
     def _inspect(self, cid):
         # get full details on this container from docker
@@ -191,10 +200,10 @@ class DnsServer(DatagramServer):
             return None
         try:
             return self._resolver.gethostbyname(name)
-        except socket.gaierror, e:
+        except socket.gaierror as e:
             msg = str(e)
             if not contains(msg, 'ETIMEOUT', 'ENOTFOUND'):
-                print msg
+                print(msg)
 
 
 def stop(*servers): 
@@ -235,8 +244,6 @@ def parse_args():
         help='Servers for recursive DNS resolution')
     parser.add_argument('--no-recursion', action='store_const', const=1,
         help='Disables recursive DNS queries')
-#    parser.add_argument('--verbose', action='store_const', const=1,
-#        help='Be more verbose')
     parser.add_argument('-q', '--quiet', action='store_const', const=1,
         help='Quiet mode')
     parser.add_argument('-r', '--record', nargs="*", default=[],
