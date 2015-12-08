@@ -254,7 +254,7 @@ def main():
     QUIET = args.quiet
     resolver = () if args.no_recursion else args.resolver
     table = NameTable([(k + "." + args.domain, v) for (k, v) in args.record])
-    monitor = DockerMonitor(docker.Client(args.docker), table, args.domain)
+    monitor = DockerMonitor(docker.Client(args.docker, version='auto'), table, args.domain)
     dns = DnsServer(args.dns_bind, table, resolver)
     gevent.signal(signal.SIGINT, stop, dns) 
     dns.start()
