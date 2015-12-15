@@ -171,13 +171,13 @@ class DockerMonitor(object):
         name = get(rec, 'Name')
         if not name:
             return None
-
+        hostname = '%s.%s' % (get(rec, 'Config', 'Hostname'), self._domain)
         id_ = get(rec, 'Id')
         labels = get(rec, 'Config', 'Labels')
         state = get(rec, 'State', 'Running')
         ip_address = get(rec, 'NetworkSettings', 'IPAddress')
 
-        return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ]
+        return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ] + [ Container(id_, hostname, state, ip_address) ]
 
 
 class DnsServer(DatagramServer):
