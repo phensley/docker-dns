@@ -133,17 +133,18 @@ class DockerMonitor(object):
         # read the docker event stream and update the name table
         for raw in events:
             evt = json.loads(raw)
-            cid = evt['id']
-            status = evt['status']
-            if status in ('start', 'die'):
-                try:
-                    for rec in self._inspect(cid):
-                        if status == 'start':
-                            self._table.add(rec.name, rec.addr)
-                        else:
-                            self._table.remove(rec.name)
-                except Exception as e:
-                    print(str(e))
+            if evt.get('Type', 'container') == 'container':
+                cid = evt['id']
+                status = evt['status']
+                if status in ('start', 'die'):
+                    try:
+                        for rec in self._inspect(cid):
+                            if status == 'start':
+                                self._table.add(rec.name, rec.addr)
+                            else:
+                                self._table.remove(rec.name)
+                    except Exception as e:
+                        print(str(e))
 
     def _get_names(self, name, labels):
         names = [ RE_VALIDNAME.sub('', name).rstrip('.') ]
