@@ -202,6 +202,8 @@ class DockerMonitor(object):
         labels = get(rec, 'Config', 'Labels')
         state = get(rec, 'State', 'Running')
         ip_address = get(rec, 'NetworkSettings', 'IPAddress')
+        if not ip_address:
+            ip_address = get(rec, 'NetworkSettings', 'Networks', 'macnet100', 'IPAddress')
 
         return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ]
 
