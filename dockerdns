@@ -96,6 +96,20 @@ class NameTable(object):
                 log('table.get %s == %s', name, res)
                 return res
 
+    def rename(self, old_name, new_name):
+        if not old_name or not new_name:
+            return
+        old_name = old_name.lstrip('/')
+        old_key = self._key(old_name)
+        new_key = self._key(new_name)
+        with self._lock:
+            addr = self._storage.get(old_key)
+            if addr:
+                del self._storage[old_key]
+                new_key = self._key(new_name)
+                self._storage[new_key] = addr
+                log('table.rename (%s -> %s) == %s', old_name, new_name, addr)
+
     def remove(self, name):
         key = self._key(name)
         if key:
@@ -134,17 +148,28 @@ class DockerMonitor(object):
         for raw in events:
             evt = json.loads(raw)
             if evt.get('Type', 'container') == 'container':
-                cid = evt['id']
-                status = evt['status']
-                if status in ('start', 'die'):
+                cid = evt.get('id')
+                if cid is None:
+                    continue
+                status = evt.get('status')
+                if status in set(('start', 'die', 'rename')):
                     try:
                         for rec in self._inspect(cid):
                             if status == 'start':
                                 self._table.add(rec.name, rec.addr)
+
+                            elif status == 'rename':
+                                old_name = get(evt, 'Actor', 'Attributes', 'oldName')
+                                new_name = get(evt, 'Actor', 'Attributes', 'name')
+                                old_name = '.'.join((old_name, self._domain))
+                                new_name = '.'.join((new_name, self._domain))
+                                self._table.rename(old_name, new_name)
+
                             else:
                                 self._table.remove(rec.name)
+
                     except Exception as e:
-                        print(str(e))
+                        log('Error: %s', e)
 
     def _get_names(self, name, labels):
         names = [ RE_VALIDNAME.sub('', name).rstrip('.') ]
