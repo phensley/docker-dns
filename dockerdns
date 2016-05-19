@@ -225,7 +225,7 @@ class DnsServer(DatagramServer):
         rec = DNSRecord.parse(data)
         addr = None
         auth = False
-        if rec.q.qtype in (QTYPE.A, QTYPE.AAAA):
+        if rec.q.qtype in (QTYPE.A, QTYPE.AAAA, QTYPE.ANY):
             addr = self._table.get(rec.q.qname.idna())
             if addr:
                 auth = True
@@ -252,11 +252,11 @@ class DnsServer(DatagramServer):
                 print(msg)
 
 
-def stop(*servers): 
+def stop(*servers):
     for svr in servers:
-        if svr.started: 
-            svr.stop() 
-    sys.exit(signal.SIGINT) 
+        if svr.started:
+            svr.stop()
+    sys.exit(signal.SIGINT)
 
 def splitrecord(rec):
     m = re.match('([a-zA-Z0-9_-]*):((?:[12]?[0-9]{1,2}\.){3}(?:[12]?[0-9]{1,2}){1}$)', rec)
@@ -309,11 +309,10 @@ def main():
     table = NameTable([(k + "." + args.domain, v) for (k, v) in args.record])
     monitor = DockerMonitor(docker.Client(args.docker, version='auto'), table, args.domain)
     dns = DnsServer(args.dns_bind, table, resolver)
-    gevent.signal(signal.SIGINT, stop, dns) 
+    gevent.signal(signal.SIGINT, stop, dns)
     dns.start()
     gevent.wait([gevent.spawn(monitor.run)])
 
 
 if __name__ == '__main__':
     main()
-
