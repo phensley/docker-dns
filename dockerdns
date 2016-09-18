@@ -50,7 +50,7 @@ EPILOG = '''
 '''
 
 
-Container = namedtuple('Container', 'id, name, running, addr')
+Container = namedtuple('Container', 'id, name, running, addrs')
 
 
 def log(msg, *args):
@@ -142,7 +142,8 @@ class DockerMonitor(object):
         for container in self._docker.containers():
             for rec in self._inspect(container['Id']):
                 if rec.running:
-                    self._table.add(rec.name, rec.addr)
+                    for addr in rec.addrs:
+                        self._table.add(rec.name, addr)
 
         # read the docker event stream and update the name table
         for raw in events:
@@ -156,7 +157,8 @@ class DockerMonitor(object):
                     try:
                         for rec in self._inspect(cid):
                             if status == 'start':
-                                self._table.add(rec.name, rec.addr)
+                                for addr in rec.addrs:
+                                    self._table.add(rec.name, addr)
 
                             elif status == 'rename':
                                 old_name = get(evt, 'Actor', 'Attributes', 'oldName')
@@ -188,6 +190,9 @@ class DockerMonitor(object):
                 names.append('%s.%s' % (service, project))
 
         return [ '.'.join((name, self._domain)) for name in names ]
+        
+    def _get_addrs(self, networks):
+        return [ value['IPAddress'] for value in networks.values() ]
 
     def _inspect(self, cid):
         # get full details on this container from docker
@@ -202,14 +207,9 @@ class DockerMonitor(object):
         labels = get(rec, 'Config', 'Labels')
         state = get(rec, 'State', 'Running')
         networks = get(rec, 'NetworkSettings', 'Networks')
-        ip_address = ''
-        for value in networks.values():
-            if 'IPAddress' in value:
-                ip_address = value['IPAddress']
-                break
-            
+        ip_addrs = self._get_addrs(networks)      
 
-        return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ]
+        return [ Container(id_, name, state, ip_addrs) for name in self._get_names(name, labels) ]
 
 
 class DnsServer(DatagramServer):
