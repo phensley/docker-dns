@@ -94,7 +94,10 @@ class NameTable(object):
         if key:
             with self._lock:
                 res = self._storage.get(key)
-                log('table.get %s with %s' %( name, ", ".join(addr for addr in res)))
+                if not res:
+                    log('table.get %s with NoneType' % (name))
+                else:
+                    log('table.get %s with %s' % (name, ", ".join(addr for addr in res)))
                 return res
 
     def rename(self, old_name, new_name):
@@ -226,10 +229,10 @@ class DnsServer(DatagramServer):
 
     def handle(self, data, peer):
         rec = DNSRecord.parse(data)
-        addrs = None
+        addrs = None 
         auth = False
         if rec.q.qtype in (QTYPE.A, QTYPE.AAAA, QTYPE.ANY):
-            addrs = self._table.get(rec.q.qname.idna())
+            addrs = self._table.get(rec.q.qname.idna()) or set()
             if addrs:
                 auth = True
                 if rec.q.qtype == QTYPE.AAAA:
@@ -240,8 +243,13 @@ class DnsServer(DatagramServer):
 
     def _reply(self, rec, auth, addrs=None):
         reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
+        if not addrs:
+            return reply.pack()
+
         for addr in addrs:
-            reply.add(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
+            reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
+
+        
         return reply.pack()
 
     def _resolve(self, name):
