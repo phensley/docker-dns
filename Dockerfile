@@ -1,7 +1,8 @@
-FROM alpine:latest
+FROM alpine:3.3
 MAINTAINER "Patrick Hensley <pathensley@gmail.com>"
 ADD requirements.txt .
-RUN apk add --update python python-dev gcc libgcc libc-dev py-pip libev && \
+RUN PY=2.7.12-r0 && \
+    apk add --update python=$PY python-dev=$PY gcc libgcc libc-dev py-pip libev && \
     pip install -r requirements.txt && \
     apk del python-dev gcc libgcc libc-dev py-pip libev && \
     rm -rf /tmp/* && \
