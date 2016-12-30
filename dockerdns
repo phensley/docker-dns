@@ -19,6 +19,7 @@ monkey.patch_all()
 
 # core
 import argparse
+from collections import defaultdict
 from collections import namedtuple
 from datetime import datetime
 import json
@@ -50,7 +51,7 @@ EPILOG = '''
 '''
 
 
-Container = namedtuple('Container', 'id, name, running, addr')
+Container = namedtuple('Container', 'id, name, running, addrs')
 
 
 def log(msg, *args):
@@ -76,7 +77,7 @@ class NameTable(object):
     'Table mapping names to addresses'
 
     def __init__(self, records):
-        self._storage = {}
+        self._storage = defaultdict(set)
         self._lock = threading.Lock()
         for rec in records:
             self.add(rec[0], rec[1])
@@ -86,14 +87,17 @@ class NameTable(object):
         if key:
             with self._lock:
                 log('table.add %s -> %s', name, addr)
-                self._storage[key] = addr
+                self._storage[key].add(addr)
 
     def get(self, name):
         key = self._key(name)
         if key:
             with self._lock:
                 res = self._storage.get(key)
-                log('table.get %s == %s', name, res)
+                if not res:
+                    log('table.get %s with NoneType' % (name))
+                else:
+                    log('table.get %s with %s' % (name, ", ".join(addr for addr in res)))
                 return res
 
     def rename(self, old_name, new_name):
@@ -103,12 +107,8 @@ class NameTable(object):
         old_key = self._key(old_name)
         new_key = self._key(new_name)
         with self._lock:
-            addr = self._storage.get(old_key)
-            if addr:
-                del self._storage[old_key]
-                new_key = self._key(new_name)
-                self._storage[new_key] = addr
-                log('table.rename (%s -> %s) == %s', old_name, new_name, addr)
+            self._storage[new_key] = self._storage.pop(old_key)
+            log('table.rename (%s -> %s)', old_name, new_name)
 
     def remove(self, name):
         key = self._key(name)
@@ -142,7 +142,8 @@ class DockerMonitor(object):
         for container in self._docker.containers():
             for rec in self._inspect(container['Id']):
                 if rec.running:
-                    self._table.add(rec.name, rec.addr)
+                    for addr in rec.addrs:
+                        self._table.add(rec.name, addr)
 
         # read the docker event stream and update the name table
         for raw in events:
@@ -156,7 +157,8 @@ class DockerMonitor(object):
                     try:
                         for rec in self._inspect(cid):
                             if status == 'start':
-                                self._table.add(rec.name, rec.addr)
+                                for addr in rec.addrs:
+                                    self._table.add(rec.name, addr)
 
                             elif status == 'rename':
                                 old_name = get(evt, 'Actor', 'Attributes', 'oldName')
@@ -188,6 +190,9 @@ class DockerMonitor(object):
                 names.append('%s.%s' % (service, project))
 
         return [ '.'.join((name, self._domain)) for name in names ]
+        
+    def _get_addrs(self, networks):
+        return [ value['IPAddress'] for value in networks.values() ]
 
     def _inspect(self, cid):
         # get full details on this container from docker
@@ -201,12 +206,10 @@ class DockerMonitor(object):
         id_ = get(rec, 'Id')
         labels = get(rec, 'Config', 'Labels')
         state = get(rec, 'State', 'Running')
-        ip_address = get(rec, 'NetworkSettings', 'IPAddress')
-        if not ip_address:
-            network = get(rec, 'HostConfig', 'NetworkMode')
-            ip_address = get(rec, 'NetworkSettings', 'Networks', network, 'IPAddress')
+        networks = get(rec, 'NetworkSettings', 'Networks')
+        ip_addrs = self._get_addrs(networks)      
 
-        return [ Container(id_, name, state, ip_address) for name in self._get_names(name, labels) ]
+        return [ Container(id_, name, state, ip_addrs) for name in self._get_names(name, labels) ]
 
 
 class DnsServer(DatagramServer):
@@ -226,22 +229,27 @@ class DnsServer(DatagramServer):
 
     def handle(self, data, peer):
         rec = DNSRecord.parse(data)
-        addr = None
+        addrs = None 
         auth = False
         if rec.q.qtype in (QTYPE.A, QTYPE.AAAA, QTYPE.ANY):
-            addr = self._table.get(rec.q.qname.idna())
-            if addr:
+            addrs = self._table.get(rec.q.qname.idna()) or set()
+            if addrs:
                 auth = True
                 if rec.q.qtype == QTYPE.AAAA:
-                    addr=None
+                    addrs = None
             else:
-                addr = self._resolve('.'.join(rec.q.qname.label))
-        self.socket.sendto(self._reply(rec, auth, addr), peer)
+                addrs.add(self._resolve('.'.join(rec.q.qname.label)))
+        self.socket.sendto(self._reply(rec, auth, addrs), peer)
 
-    def _reply(self, rec, auth, addr=None):
+    def _reply(self, rec, auth, addrs=None):
         reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
-        if addr:
+        if not addrs:
+            return reply.pack()
+
+        for addr in addrs:
             reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
+
+        
         return reply.pack()
 
     def _resolve(self, name):
