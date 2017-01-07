@@ -1,0 +1,8 @@
+version: '2'
+services:
+  dns:
+    image: phensley/docker-dns
+    command: --domain example.com 
+    volumes:
+     - "/var/run/docker.sock:/docker.sock"
+
