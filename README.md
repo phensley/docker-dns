@@ -46,7 +46,7 @@ Use dns container as a resolver inside a container:
     % docker run -it --dns $(docker inspect -f '{{.NetworkSettings.IPAddress}}' dns) \
         --dns-search example.com ubuntu bash
         
-    >💡 Tip：As we don't add `-d` option, we will login this docker container. And the following steps are done in this docker container. 
+>💡 Tip：As we don't add `-d` option, we will login this docker container. And the following steps are done in this docker container. 
 
     root@95840788bf08:/# cat /etc/resolv.conf
     nameserver 172.17.0.3
