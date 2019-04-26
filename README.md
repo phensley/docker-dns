@@ -74,6 +74,20 @@ Now names not rooted in `example.com` will fail to resolve:
     root@4d15342387b0:/# ping github.com
     ping: unknown host github.com
 
+Pointing a subdomain to some IP
+
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/dock$
+        --domain example.com --record localhost:127.0.0.1
+
+    # This will cause localhost.example.com to resolve to 127.0.0.1
+
+Pointing all subdomains to some IP
+
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/doc$
+        --domain example.com --record *:172.18.0.4
+
+    # This makes everything not explicitly set as a subdomain to resolve to 172.18.0.4.
+    # Useful when your reverse proxy is there.
 
 License
 -------
