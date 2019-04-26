@@ -83,6 +83,8 @@ class NameTable(object):
             self.add(rec[0], rec[1])
 
     def add(self, name, addr):
+        if name.startswith('.'):
+            name = '*' + name
         key = self._key(name)
         if key:
             with self._lock:
@@ -94,10 +96,18 @@ class NameTable(object):
         if key:
             with self._lock:
                 res = self._storage.get(key)
-                if not res:
-                    log('table.get %s with NoneType' % (name))
-                else:
+
+                wild = re.sub(r'^[^\.]+', '*', name)
+                wildkey = self._key(wild)
+                wildres = self._storage.get(wildkey)
+
+                if res:
                     log('table.get %s with %s' % (name, ", ".join(addr for addr in res)))
+                elif wildres:
+                    log('table.get %s with %s' % (name, ", ".join(addr for addr in wildres)))
+                    res = wildres
+                else:
+                    log('table.get %s with NoneType' % (name))
                 return res
 
     def rename(self, old_name, new_name):
@@ -120,7 +130,8 @@ class NameTable(object):
 
     def _key(self, name):
         try:
-            return DNSLabel(name.lower()).label
+            label = DNSLabel(name.lower()).label
+            return label
         except Exception:
             return None
 
@@ -284,6 +295,7 @@ def check(args):
         if not os.path.exists(url.path):
             log('unix socket %r does not exist', url.path)
             sys.exit(1)
+
 
 def parse_args():
     docker_url = os.environ.get('DOCKER_HOST')
