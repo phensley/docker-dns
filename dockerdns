@@ -251,41 +251,40 @@ class DnsServer(DatagramServer):
 
     def handle(self, data, peer):
         rec = DNSRecord.parse(data)
-        addrs = None
-        names = None
+        addrs = set()
+        names = set()
         auth = False
         if rec.q.qtype in (QTYPE.A, QTYPE.AAAA, QTYPE.ANY):
             addrs = self._table.get(rec.q.qname.idna()) or set()
             if addrs:
                 auth = True
                 if rec.q.qtype == QTYPE.AAAA:
-                    addrs = None
+                    addrs = set()
             else:
-                addrs.add(self._resolve('.'.join(rec.q.qname.label)))
+                tmp = self._gethostbyname('.'.join(rec.q.qname.label))
+                if tmp is not None:
+                    addrs.add(tmp)
         
         elif rec.q.qtype in (QTYPE.PTR,):
             key = '.'.join(rec.q.qname.label)
-            names = self._table.get(key)
-
-        # filter any missing records from the set
-        if addrs is not None:
-            addrs = set(a for a in addrs if a is not None)
-        if names is not None:
-            names = set(n for n in names if n is not None)
+            names = self._table.get(key) or set()
+            if not names:
+                addr = '.'.join(rec.q.qname.stripSuffix('in-addr.arpa').label)
+                tmp = self._gethostbyaddr(addr)
+                if tmp is not None:
+                    names.add(tmp)
 
         self.socket.sendto(self._reply(rec, auth, addrs, names), peer)
 
-    def _reply(self, rec, auth, addrs=None, names=None):
+    def _reply(self, rec, auth, addrs, names):
         reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
-        if addrs:
-            for addr in addrs:
-                reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
-        if names:
-            for name in names:
-                reply.add_answer(RR(rec.q.qname, QTYPE.PTR, rdata=PTR(name)))
+        for addr in addrs:
+            reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
+        for name in names:
+            reply.add_answer(RR(rec.q.qname, QTYPE.PTR, rdata=PTR(name)))
         return reply.pack()
 
-    def _resolve(self, name):
+    def _gethostbyname(self, name):
         if not self._resolver:
             return None
         try:
@@ -293,7 +292,20 @@ class DnsServer(DatagramServer):
         except socket.gaierror as e:
             msg = str(e)
             if not contains(msg, 'ETIMEOUT', 'ENOTFOUND'):
-                print(msg)
+                log(msg)
+
+    def _gethostbyaddr(self, addr):
+        if not self._resolver:
+            return None
+        try:
+            res = self._resolver.gethostbyaddr(addr)
+            if res:
+                return res[0]
+            return None
+        except socket.gaierror as e:
+            msg = str(e)
+            if not contains(msg, 'ETIMEOUT', 'ENOTFOUND'):
+                log(msg)
 
 
 def stop(*servers):
