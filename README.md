@@ -41,6 +41,17 @@ Query for the containers by hostname:
 
     foo.example.com has address 172.17.0.2
 
+Query by IP address:
+
+    % host 172.17.0.2 172.17.0.3
+    Using domain server:
+    Name: 172.17.0.3
+    Address: 172.17.0.3#53
+    Aliases:
+
+    2.0.17.172.in-addr.arpa domain name pointer bar.example.com.
+    2.0.17.172.in-addr.arpa domain name pointer 5046e96685a2.example.com.
+
 Use dns container as a resolver inside a container:
 
     % docker run -it --dns $(docker inspect -f '{{.NetworkSettings.IPAddress}}' dns) \
