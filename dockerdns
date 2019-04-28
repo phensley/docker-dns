@@ -31,7 +31,7 @@ import time
 from urllib.parse import urlparse
 
 # libs
-from dnslib import A, DNSHeader, DNSLabel, DNSRecord, QTYPE, RR
+from dnslib import A, DNSHeader, DNSLabel, DNSRecord, PTR, QTYPE, RR
 import docker
 import gevent
 from gevent import socket, threading
@@ -90,6 +90,12 @@ class NameTable(object):
             with self._lock:
                 log('table.add %s -> %s', name, addr)
                 self._storage[key].add(addr)
+
+                # reverse map for PTR records
+                addr = '%s.in-addr.arpa' % '.'.join(reversed(addr.split('.')))
+                key = self._key(addr)
+                log('table.add %s -> %s', addr, name)
+                self._storage[key].add(name)
 
     def get(self, name):
         key = self._key(name)
@@ -246,6 +252,7 @@ class DnsServer(DatagramServer):
     def handle(self, data, peer):
         rec = DNSRecord.parse(data)
         addrs = None
+        names = None
         auth = False
         if rec.q.qtype in (QTYPE.A, QTYPE.AAAA, QTYPE.ANY):
             addrs = self._table.get(rec.q.qname.idna()) or set()
@@ -255,18 +262,27 @@ class DnsServer(DatagramServer):
                     addrs = None
             else:
                 addrs.add(self._resolve('.'.join(rec.q.qname.label)))
+        
+        elif rec.q.qtype in (QTYPE.PTR,):
+            key = '.'.join(rec.q.qname.label)
+            names = self._table.get(key)
 
         # filter any missing records from the set
         if addrs is not None:
             addrs = set(a for a in addrs if a is not None)
+        if names is not None:
+            names = set(n for n in names if n is not None)
 
-        self.socket.sendto(self._reply(rec, auth, addrs), peer)
+        self.socket.sendto(self._reply(rec, auth, addrs, names), peer)
 
-    def _reply(self, rec, auth, addrs=None):
+    def _reply(self, rec, auth, addrs=None, names=None):
         reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
         if addrs:
             for addr in addrs:
                 reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
+        if names:
+            for name in names:
+                reply.add_answer(RR(rec.q.qname, QTYPE.PTR, rdata=PTR(name)))
         return reply.pack()
 
     def _resolve(self, name):
