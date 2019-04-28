@@ -221,7 +221,9 @@ class DockerMonitor(object):
         networks = get(rec, 'NetworkSettings', 'Networks')
         ip_addrs = self._get_addrs(networks)
 
-        return [ Container(id_, name, state, ip_addrs) for name in self._get_names(name, labels) ]
+        hostname = '%s.%s' % (get(rec, 'Config', 'Hostname'), self._domain)
+        containers = list(Container(id_, name, state, ip_addrs) for name in self._get_names(name, labels))
+        return containers + [Container(id_, hostname, state, ip_addrs)]
 
 
 class DnsServer(DatagramServer):
