@@ -251,16 +251,18 @@ class DnsServer(DatagramServer):
                     addrs = None
             else:
                 addrs.add(self._resolve('.'.join(rec.q.qname.label)))
+
+        # filter any missing records from the set
+        if addrs is not None:
+            addrs = set(a for a in addrs if a is not None)
+
         self.socket.sendto(self._reply(rec, auth, addrs), peer)
 
     def _reply(self, rec, auth, addrs=None):
         reply = DNSRecord(DNSHeader(id=rec.header.id, qr=1, aa=auth, ra=bool(self._resolver)), q=rec.q)
-        if not addrs:
-            return reply.pack()
-
-        for addr in addrs:
-            reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
-
+        if addrs:
+            for addr in addrs:
+                reply.add_answer(RR(rec.q.qname, QTYPE.A, rdata=A(addr)))
         return reply.pack()
 
     def _resolve(self, name):
