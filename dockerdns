@@ -162,6 +162,8 @@ class DockerMonitor(object):
             if evt.get('Type', 'container') == 'container':
                 cid = evt.get('id')
                 if cid is None:
+                    cid = evt.get('ID')
+                if cid is None:
                     continue
                 status = evt.get('status')
                 if status in set(('start', 'die', 'rename')):
