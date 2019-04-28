@@ -17,7 +17,7 @@ Run some containers:
 
 Start up dockerdns:
 
-    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
+    % docker run -d --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
         --domain example.com
 
 Start more containers:
@@ -40,12 +40,13 @@ Query for the containers by hostname:
     Aliases:
 
     foo.example.com has address 172.17.0.2
-    foo.example.com has address 172.17.0.2
 
 Use dns container as a resolver inside a container:
 
     % docker run -it --dns $(docker inspect -f '{{.NetworkSettings.IPAddress}}' dns) \
         --dns-search example.com ubuntu bash
+        
+>💡 Tip：As we don't add `-d` option, we will login this docker container. And the following steps are done in this docker container. 
 
     root@95840788bf08:/# cat /etc/resolv.conf
     nameserver 172.17.0.3
