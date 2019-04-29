@@ -3,19 +3,20 @@
 
 # dockerdns - simple, automatic, self-contained dns server for docker
 
-
 # python 3 compatibility
 from __future__ import print_function
+
+# monkey patch everything
+from gevent import monkey
+monkey.patch_all()
+
+# python 3 compatibility
 from future import standard_library
 from functools import reduce
 standard_library.install_aliases()
 from builtins import map
 from builtins import str
 from builtins import object
-
-# monkey patch everything
-from gevent import monkey
-monkey.patch_all()
 
 # core
 import argparse
@@ -37,7 +38,6 @@ import gevent
 from gevent import socket, threading
 from gevent.server import DatagramServer
 from gevent.resolver_ares import Resolver
-
 
 PROCESS = 'dockerdns'
 DOCKER_SOCK = 'unix:///docker.sock'
@@ -364,12 +364,12 @@ def main():
     QUIET = args.quiet
     resolver = () if args.no_recursion else args.resolver
     table = NameTable([(k + "." + args.domain, v) for (k, v) in args.record])
-    monitor = DockerMonitor(docker.Client(args.docker, version='auto'), table, args.domain)
+    client = docker.Client(args.docker, version='auto')
+    monitor = DockerMonitor(client, table, args.domain)
     dns = DnsServer(args.dns_bind, table, resolver)
     gevent.signal(signal.SIGINT, stop, dns)
     dns.start()
     gevent.wait([gevent.spawn(monitor.run)])
-
 
 if __name__ == '__main__':
     main()
