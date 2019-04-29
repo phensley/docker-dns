@@ -39,6 +39,9 @@ from gevent import socket, threading
 from gevent.server import DatagramServer
 from gevent.resolver_ares import Resolver
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 PROCESS = 'dockerdns'
 DOCKER_SOCK = 'unix:///docker.sock'
 DNS_BINDADDR = '0.0.0.0:53'
@@ -364,10 +367,21 @@ def main():
     QUIET = args.quiet
     resolver = () if args.no_recursion else args.resolver
     table = NameTable([(k + "." + args.domain, v) for (k, v) in args.record])
-    client = docker.Client(args.docker, version='auto')
+    tls_config = None
+    if args.docker.startswith('https://'):
+        tls_config = docker.tls.TLSConfig(verify=False)
+
+    log('DOCKER_HOST %s' % args.docker)
+    client = None
+    try:
+        client = docker.Client(args.docker, version='auto', tls=tls_config)
+    except docker.errors.TLSParameterError, e:
+        log('Docker error: %s' % e)
+        sys.exit(1)
     monitor = DockerMonitor(client, table, args.domain)
     dns = DnsServer(args.dns_bind, table, resolver)
     gevent.signal(signal.SIGINT, stop, dns)
+    gevent.signal(signal.SIGTERM, stop, dns)
     dns.start()
     gevent.wait([gevent.spawn(monitor.run)])
 

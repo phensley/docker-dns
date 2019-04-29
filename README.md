@@ -20,6 +20,10 @@ Start up dockerdns:
     % docker run -d --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
         --domain example.com
 
+If your Docker instance uses TLS:
+
+    % docker run --name dns -e DOCKER_HOST=https://<host>:<port> --rm phensley/docker-dns --domain example.com
+
 Start more containers:
 
     % docker run -d --name bar ubuntu bash -c "sleep 600"
