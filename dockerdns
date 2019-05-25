@@ -267,7 +267,7 @@ class DnsServer(DatagramServer):
                 tmp = self._gethostbyname('.'.join(rec.q.qname.label))
                 if tmp is not None:
                     addrs.add(tmp)
-        
+
         elif rec.q.qtype in (QTYPE.PTR,):
             key = '.'.join(rec.q.qname.label)
             names = self._table.get(key) or set()
@@ -318,7 +318,7 @@ def stop(*servers):
     sys.exit(signal.SIGINT)
 
 def splitrecord(rec):
-    m = re.match('([a-zA-Z0-9_-]*):((?:[12]?[0-9]{1,2}\.){3}(?:[12]?[0-9]{1,2}){1}$)', rec)
+    m = re.match('([a-zA-Z0-9_-]*|\*):((?:[12]?[0-9]{1,2}\.){3}(?:[12]?[0-9]{1,2}){1}$)', rec)
     if not m:
         log('--record has invalid format, expects: `--record <host>:<ip>`')
         sys.exit(1)

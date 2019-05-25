@@ -60,8 +60,8 @@ Use dns container as a resolver inside a container:
 
     % docker run -it --dns $(docker inspect -f '{{.NetworkSettings.IPAddress}}' dns) \
         --dns-search example.com ubuntu bash
-        
->💡 Tip：As we don't add `-d` option, we will login this docker container. And the following steps are done in this docker container. 
+
+>💡 Tip：As we don't add `-d` option, we will login this docker container. And the following steps are done in this docker container.
 
     root@95840788bf08:/# cat /etc/resolv.conf
     nameserver 172.17.0.3
@@ -92,14 +92,14 @@ Now names not rooted in `example.com` will fail to resolve:
 
 Pointing a subdomain to some IP
 
-    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/dock$
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
         --domain example.com --record localhost:127.0.0.1
 
     # This will cause localhost.example.com to resolve to 127.0.0.1
 
 Pointing all subdomains to some IP
 
-    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/doc$
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock phensley/docker-dns \
         --domain example.com --record *:172.18.0.4
 
     # This makes everything not explicitly set as a subdomain to resolve to 172.18.0.4.
