@@ -105,6 +105,14 @@ Pointing all subdomains to some IP
     # This makes everything not explicitly set as a subdomain to resolve to 172.18.0.4.
     # Useful when your reverse proxy is there.
 
+You can also blacklist specific networks (space-separated) from the resolution table:
+
+    % docker run --name dns -v /var/run/docker.sock:/docker.sock \
+        -e NETWORK_BLACKLIST="172.18.0.0/16 172.19.0.0/16" phensley/docker-dns \
+        --domain example.com
+
+    # Useful when your network topology or firewall prevents clients from accessing some addresses.
+
 License
 -------
 

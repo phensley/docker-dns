@@ -38,6 +38,7 @@ import gevent
 from gevent import socket, threading
 from gevent.server import DatagramServer
 from gevent.resolver_ares import Resolver
+from ipaddress import ip_network, ip_address
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -53,6 +54,13 @@ EPILOG = '''
 
 '''
 
+network_blacklist = os.environ.get('NETWORK_BLACKLIST')
+if not network_blacklist:
+    network_blacklist = "255.255.255.255/32"
+
+network_blacklist = network_blacklist.split()
+for i, network in enumerate(network_blacklist):
+    network_blacklist[i] = ip_network(network)
 
 Container = namedtuple('Container', 'id, name, running, addrs')
 
@@ -91,6 +99,10 @@ class NameTable(object):
         key = self._key(name)
         if key:
             with self._lock:
+                for network in network_blacklist:
+                    if addr and ip_address(addr) in network:
+                        log('skipping table.add %s -> %s (blacklisted network)', name, addr)
+                        return
                 log('table.add %s -> %s', name, addr)
                 self._storage[key].add(addr)
 
