@@ -1,4 +1,4 @@
-dnslib==0.9.4
+dnslib==0.9.17
 future==0.15.2
 gevent==1.0.2
 docker-py==1.1.0
